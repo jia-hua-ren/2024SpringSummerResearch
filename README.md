@@ -19,4 +19,8 @@ transform_test.py: This is the script that modifies a driver file for GoogleTest
 TODO: modify extract.py to rename functions to a generic name like \_\_test\_\_ to save work in transform_test.py. It removes the need to modify the tests to have correct function name for each test and method being ran.
 
 
+General TODOs:
+- in extract,py, save method informations to a sqlite3 db.
+- etc... i cant think right now 
+
 For more detail read this paper: (waiting on permission to post it in public)
