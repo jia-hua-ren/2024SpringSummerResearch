@@ -1,13 +1,14 @@
 # 2024SpringSummerResearch
+
 Research/coding done in Spring/Summer 2024 at Osaka University, in Higo lab, under Prof. Yoshiki Higo.
 
 To create functionally equivalent(FE) method pair dataset.
 
 ## Core Idea
 
-The goal of this research is to support the development of improved code-clone detection systems by building a dataset of **Functionally Equivalent** C code function pairs. Two pieces of code are considered *functionally equivalent* if they:
+The goal of this research is to support the development of improved code-clone detection systems by building a dataset of **Functionally Equivalent** C code function pairs. Two pieces of code are considered _functionally equivalent_ if they:
 
-- Have the same function signature (parameters and return type), and  
+- Have the same function signature (parameters and return type), and
 - Produce the same output for all valid inputs, regardless of differences in implementation or structure.
 
 To verify functional equivalence, we generate unit tests for each function and perform **cross-testing**: we run the unit tests of one function on the other, and vice versa. If both functions pass each other’s tests, we classify them as functionally equivalent. This pair is then verified by human eyes and the dataset can then be used to train or evaluate code-clone detection systems.
@@ -24,9 +25,9 @@ For example, UnitTestBot has difficulty handling many outlined types of code on 
 
 ### 2. Collecting Usable Code Samples
 
-Another major hurdle was sourcing appropriate C functions. I initially created a script to clone top-ranking C repositories from GitHub and extract individual functions. However, many functions relied on **external variables**, **custom types**, or **non-standard libraries**, making them difficult or impossible to compile and test in isolation.
+Another major hurdle was sourcing appropriate C functions. I initially created a script to clone top-ranking C repositories from GitHub and extract individual functions. However, many functions relied on **external variables**, **custom types**, **macros** or **non-standard libraries**, making them difficult or impossible to compile and test in isolation.
 
-To address this, I filtered for **self-contained functions** —those that could compile and run with only standard library dependencies. I used Clang to run these functions and I had to write additional logic to:
+To address this, I filtered for **self-contained functions** —those that could compile and run with only standard library dependencies. I used Clang to determine if these functions can run and I had to write additional logic to:
 
 - Automatically add standard `#include` statements where needed
 - Exclude functions with external dependencies
@@ -36,22 +37,26 @@ Even then, issues persisted. Many functions had **complex or non-standard return
 
 ## The contents of this Repo
 
-c.py: This is the script that uses Clang to extract C/C++ methods from a C/C++ file. 
-TODO: somehow detect macros in the preprocessing part and add those to the function extractions.
-TODO: remove *any* use of user-defined types and only standard types from standard headers.
+**c.py**: A Clang-based function extraction tool that parses C/C++ source files to identify and isolate self-contained functions. It filters out functions that use user-defined types, call other functions from the same file, return void, or are named "main". Extracted functions are automatically organized by signature into separate directories and have standard library headers added for compilation compatibility.
 
-extract.py: this is the script that runs c.py on all files in a directory
+**extract.py**: A directory traversal utility that applies `c.py` to all `.c` and `.cpp` files within a specified directory tree, enabling batch processing of entire codebases.
 
-cross_test.sh: this is for cross-testing. The script detects whether all tests are passed when ran on a specific method inside the group. 
-TODO: need a way to store cross-testing results. Need to actually determine if the pair is FE (right now, it outputs "X and Y are functionally equivalent" when X passes Y's tests, but Y also needs to pass X's tests to be FE.
+**gen_tests.sh**: An automation script that generates unit tests using UTBot's CLI for all C/C++ files in a directory. The script automatically moves files that fail compilation to a separate error directory for manual review.
 
-gen_tests.sh: a simple script that runs the UTBot cli generate test command on all files in a directory.
+**transform_test.py**: A test driver generator that converts UTBot-generated test files into executable GoogleTest drivers. The script performs several transformations: updates include statements to reference the correct method files, extracts and corrects function names within test cases, removes UTBot-specific comments and namespace declarations, and adds the necessary main function for test execution.
 
-transform_test.py: This is the script that modifies a driver file for GoogleTest. The driver file is the one that allows test execution. How does it modify the driver file? This script extracts tests from the tests generated by UTBot (so run gen_tests first to get the tests), modifies the include to include the current method being ran, removes tests that results in error, modifies the tests to have the correct function name from the method file.
+**cross_test.sh**: An automated cross-testing framework that evaluates functional equivalence between extracted methods. For each method, the script runs it against all other methods' test suites (excluding self-tests), compiles the combinations using GoogleTest / CMake, and reports when methods pass each other's tests as potential functionally equivalent pairs.
 
-TODO: modify extract.py to rename functions to a generic name like \_\_test\_\_ to save work in transform_test.py. It removes the need to modify the tests to have correct function name for each test and method being ran.
+## Pipeline Workflow
 
+1. Use `extract.py` with `c.py` to extract self-contained functions from source repositories
+2. Run `gen_tests.sh` to generate unit tests for the extracted methods using UTBot
+3. Apply `transform_test.py` to convert test files into executable drivers
+4. Execute `cross_test.sh` to perform cross-testing and identify functionally equivalent method pairs
 
-General TODOs:
-- in extract,py, save method informations to a sqlite3 db.
-- etc... i cant think right now 
+## Future Improvements
+
+- Implement macro detection during preprocessing to include macro-based functions
+- Add SQLite database storage for method metadata and cross-testing results
+- Enhance functional equivalence validation to require bidirectional test passing
+- Develop automated verification pipeline for identified equivalent pairs
